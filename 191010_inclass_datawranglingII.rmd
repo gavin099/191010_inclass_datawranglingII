@@ -1,0 +1,109 @@
+---
+title: "data_wrangling II"
+author: "Gavin Ko"
+date: "10/10/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(rvest) # harvest pons
+library(httr) # API interface
+```
+
+## Read in html files
+```{r}
+url = "http://samhda.s3-us-gov-west-1.amazonaws.com/s3fs-public/field-uploads/2k15StateFiles/NSDUHsaeShortTermCHG2015.htm"
+drug_use_xml = read_html(url)
+
+# select specific table
+table_list = 
+  (drug_use_xml %>% html_nodes(css = "table"))
+
+table_list[[1]] %>% 
+  html_table() %>% 
+  slice(-1) %>% #slice the first row, which is a note
+  as_tibble()
+```
+
+## Try the IMDB data
+```{r}
+hpurl = "https://www.imdb.com/list/ls000630791/"
+hp_xml = read_html(hpurl)
+# movie title
+hp_names = 
+  hp_xml %>% 
+  html_nodes(".lister-item-header a") %>% # check the code in selector gadget
+  html_text() # choose out the text part
+# gross revenue
+hp_gross_rev = 
+  hp_xml %>%
+  html_nodes(".text-small:nth-child(7) span:nth-child(5)") %>%
+  html_text()
+# movie run time
+hp_runtime = 
+  hp_xml %>%
+  html_nodes(".runtime") %>%
+  html_text()
+# combine things together
+hp_tibble = 
+  tibble(
+    title = hp_names,
+    rev = hp_gross_rev,
+    runtime = hp_runtime
+  )
+```
+
+## Napoleon Dynamite
+```{r}
+dy_url = "https://www.amazon.com/product-reviews/B00005JNBQ/ref=cm_cr_arp_d_viewopt_rvwer?ie=UTF8&reviewerType=avp_only_reviews&sortBy=recent&pageNumber=1"
+
+dynamite_html = read_html(dy_url)
+
+review_titles = 
+  dynamite_html %>%
+  html_nodes(".a-text-bold span") %>%
+  html_text()
+
+# Jeff got the css selector from google
+review_stars = 
+  dynamite_html %>%
+  html_nodes("#cm_cr-review_list .review-rating") %>%
+  html_text()
+
+review_text = 
+  dynamite_html %>%
+  html_nodes(".review-text-content span") %>%
+  html_text()
+
+reviews = tibble(
+  title = review_titles,
+  stars = review_stars,
+  text = review_text
+)
+```
+
+## Using API practice
+```{r}
+nyc_data = 
+  GET("https://data.cityofnewyork.us/resource/ia2d-e54m.csv") %>% # search on the web data that provide clean and tidy way to acquire data
+  content()
+  
+# json data is more messy
+nyc_data_json = 
+  GET("https://data.cityofnewyork.us/resource/ia2d-e54m.json") %>% 
+   content("text") %>% # parsing the content into text format
+  jsonlite::fromJSON() %>% # cleaning data 
+  as_tibble()
+```
+## Data.gov
+
+```{r}
+brfss_smart2010 = 
+  GET("https://data.cdc.gov/api/views/acme-vg9e/rows.csv?accessType=DOWNLOAD") %>% 
+  content("parsed")
+# what's in our hw!
+```
+
+
